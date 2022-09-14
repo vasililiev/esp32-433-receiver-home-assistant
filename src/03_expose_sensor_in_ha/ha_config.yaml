@@ -1,0 +1,28 @@
+
+# configuration.yaml
+binary_sensor:
+  - name: "Wireless Doorbell"
+    state_topic: "esp32/rf/doorbell"
+    payload_on: "1"
+    payload_off: "0"
+    unique_id: "wireless_doorbell"
+    device_class: "motion"
+    value_template: "{{ value_json.state }}"
+    availability:
+      - topic: "esp32/rf/doorbell/availability"
+        payload_available: "online"
+        payload_not_available: "offline"
+
+# automations.yaml
+- alias: "Home Assistant restarted"
+  trigger:
+    - platform: homeassistant
+      event: start
+  action:
+    - delay: "00:00:10"
+    - service: mqtt.publish
+      data:
+        # Match this value to the restart topic in your ESP32 code
+        topic: "homeassistant/state/restart"
+        payload: "Restart instance"
+        retain: false

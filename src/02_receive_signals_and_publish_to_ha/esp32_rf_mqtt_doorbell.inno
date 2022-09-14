@@ -1,0 +1,188 @@
+#include <ETH.h>
+#include <WiFi.h>
+#include <WiFiAP.h>
+#include <WiFiClient.h>
+#include <WiFiGeneric.h>
+#include <WiFiMulti.h>
+#include <WiFiScan.h>
+#include <WiFiServer.h>
+#include <WiFiSTA.h>
+#include <WiFiType.h>
+#include <WiFiUdp.h>
+#include <RCSwitch.h>
+#include <ArduinoMqttClient.h>
+
+// WiFi config
+const char* ssid = "<WIFI_SSID>";
+const char* password =  "<WIFI_PASSWORD>";
+
+// MQTT config
+const char broker[] = "<MQTT_BROKER_URL>";
+const char mqttUser[] = "<MQTT_USERNAME>";
+const char mqttPassword[] = "<MQTT_PASSWORD>";
+const int port = <PORT_NUMBER>;
+// MQTT topic to post updates
+const char topic[]  = "esp32/rf/doorbell";
+// MQTT availability topic
+const char availability[] = "esp32/rf/doorbell/availability";
+// MQTT topic to subscribe for when Home Assistant restarts
+const char restart[] = "homeassistant/state/restart";
+// ID for the device
+const char mqttDeviceId = "esp32-433Reciever";
+const long interval = 2000;
+unsigned long previousMillis = 0;
+
+// RF Switch config
+// The extected payload for from the transmitter in 24bit decimal.
+const long expectedPayload = -1;
+
+RCSwitch mySwitch = RCSwitch();
+
+WiFiClient wifiClient;
+MqttClient mqttClient(wifiClient);
+
+void setup() {
+  Serial.begin(115200);
+ 
+  connectToWifi();
+  
+  mySwitch.enableReceive(4);
+
+  connectToMqtt();
+}
+
+void loop() {
+  mqttClient.poll();
+  
+  if (mySwitch.available()) {
+    long value = mySwitch.getReceivedValue();
+    Serial.println(value);
+
+    if (value == expectedPayload) {
+        ringDoorbel();
+    }
+    mySwitch.resetAvailable();
+  }
+}
+
+void connectToWifi() {
+    // Disconnect any previous connections
+    WiFi.disconnect(true);
+
+    delay(1000);
+    
+    WiFi.onEvent(wiFiEvent);
+    WiFi.begin(ssid, password);
+    
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.println("Connecting to WiFi..");
+    }
+}
+
+void connectToMqtt() {
+  mqttClient.setId(mqttDeviceId);
+  mqttClient.setUsernamePassword(mqttUser, mqttPassword);
+  
+  Serial.print("Attempting to connect to the MQTT broker: ");
+  Serial.println(broker);
+  
+  if (!mqttClient.connect(broker, port)) {
+    Serial.print("MQTT connection failed! Error code = ");
+    Serial.println(mqttClient.connectError());
+    while (reconnectToMqtt());
+  }
+
+  setAvailability();
+
+  Serial.println("You're connected to the MQTT broker!");
+  Serial.println();
+  
+  // Subscribe to a Home Assistant restart topic
+  mqttClient.subscribe(restart);
+  mqttClient.onMessage(onHomeAssistantRestart);
+}
+
+void setAvailability() {
+  Serial.println("Setting availability...");
+  // "online" is the default payload for availablity in Home Assistant
+  publishMessageToHomeAssistant(availability, "online");
+}
+
+int reconnectToMqtt() {
+  if (!mqttClient.connect(broker, port)) {
+    Serial.print("MQTT connection failed! Error code = ");
+    Serial.println(mqttClient.connectError());
+    // False
+    return 1;
+  }
+  // True
+  return 0;
+}
+
+void wiFiEvent(WiFiEvent_t event) {
+    Serial.printf("[WiFi-event] event: %d\n", event);
+    switch (event) {
+        case SYSTEM_EVENT_STA_STOP:
+        case SYSTEM_EVENT_STA_DISCONNECTED:
+        case SYSTEM_EVENT_STA_LOST_IP:
+        case SYSTEM_EVENT_AP_STOP:
+        case SYSTEM_EVENT_AP_STADISCONNECTED:
+            Serial.println("Client disconnected");
+            // Try to reconnect to the WiFi
+            connectToWifi();
+            // Try to reconnect to the MQTT broker
+            mqttClient.stop();
+            connectToMqtt();
+            break;
+        default:
+            break;
+    }
+}
+
+void ringDoorbel() {
+  Serial.println("Ringing doorbell...");
+  // Register a state change to Home Assistant
+  publishMessageToHomeAssistant(topic, "{\"state\":\"1\"}");
+  // Wait for 1s so the motion/presence sensor message is processed
+  delay(1000);
+  // Register a state change to Home Assistant
+  publishMessageToHomeAssistant(topic, "{\"state\":\"0\"}");
+
+  Serial.println("Doorbel rang!");
+}
+
+void publishMessageToHomeAssistant(const char* msgTopic, const char* message) {
+  Serial.print("Sending message to topic: ");
+  Serial.print(topic);
+  Serial.print("  ->  ");
+  Serial.print(message);
+  Serial.println();
+
+  // send message, the Print interface can be used to set the message contents
+  mqttClient.beginMessage(msgTopic);
+  mqttClient.print(message);
+  mqttClient.endMessage();
+
+  Serial.println("MQTT message sent");
+}
+
+void onHomeAssistantRestart(int messageSize) {
+  if (messageSize > 1) {
+    Serial.println("Received a message with topic '");
+    Serial.print(mqttClient.messageTopic());
+    Serial.print("', length ");
+    Serial.print(messageSize);
+    Serial.println(" bytes:");
+  
+    // use the Stream interface to print the contents
+    while (mqttClient.available()) {
+      Serial.print((char)mqttClient.read());
+    }
+    Serial.println();
+  
+    Serial.print("Home Assistant is restarting");
+    delay(20000);
+    connectToMqtt();
+  }
+}
