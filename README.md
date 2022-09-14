@@ -38,7 +38,7 @@ In this tutorial I'll explain the steps and configuration that I've setup. If yo
 
 ### Connect the ESP32 board with the RF Receiver
 
-![Connection chart](https://github.com/vasililiev/esp32-433-receiver-home-assistant/blob/main/src/img/connection_chart.png)
+![Connection chart](https://github.com/vasililiev/esp32-433-receiver-home-assistant/blob/main/img/connection_chart.png)
 
 ### Determine the payload of the button
 Every wireless doorbell comes pre-configured to send a specific payload over the 433MHz frequency and what you first need to do is to decode the payload that's transmited by the doorbell button.
