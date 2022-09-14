@@ -38,18 +38,18 @@ In this tutorial I'll explain the steps and configuration that I've setup. If yo
 
 ### Connect the ESP32 board with the RF Receiver
 
-![Connection chart](https://github.com/vasililiev/esp32-433-receiver-home-assistant/blob/master/img/connection_chart.png)
+![Connection chart](https://github.com/vasililiev/esp32-433-receiver-home-assistant/blob/main/src/img/connection_chart.png)
 
 ### Determine the payload of the button
 Every wireless doorbell comes pre-configured to send a specific payload over the 433MHz frequency and what you first need to do is to decode the payload that's transmited by the doorbell button.
 
-Use the [code for the ESP32 board](https://github.com/vasililiev/esp32-433-receiver-home-assistant/blob/master/01_determine_payload/detect_rf433_payload.inno) to determine the payload that your wireless button transmits on the 433Mhz frequency.
+Use the [code for the ESP32 board](https://github.com/vasililiev/esp32-433-receiver-home-assistant/blob/main/src/01_determine_payload/detect_rf433_payload.inno) to determine the payload that your wireless button transmits on the 433Mhz frequency.
 
 ### Configure your ESP32 to listen for doorbell rings
-After you discover the payload, copy the [code for the ESP32 board](https://github.com/vasililiev/esp32-433-receiver-home-assistant/blob/master/02_receive_signals_and_publish_to_ha/esp32_rf_mqtt_doorbell.inno), fill in the blanks, and upload it to your ESP32.
+After you discover the payload, copy the [code for the ESP32 board](https://github.com/vasililiev/esp32-433-receiver-home-assistant/blob/main/src/02_receive_signals_and_publish_to_ha/esp32_rf_mqtt_doorbell.inno), fill in the blanks, and upload it to your ESP32.
 
 ### Create a sensor in Home Assistant
 
-Add the [binary sensor and Home Assistant restart automation](https://github.com/vasililiev/esp32-433-receiver-home-assistant/blob/master/03_expose_sensor_in_ha/ha_config.yaml) in your configuration and in your MQTT sensors accordingly.
+Add the [binary sensor and Home Assistant restart automation](https://github.com/vasililiev/esp32-433-receiver-home-assistant/blob/main/src/03_expose_sensor_in_ha/ha_config.yaml) in your configuration and in your MQTT sensors accordingly.
 
 **Note:** The Home Assistant automation is neccesery in order for the sensor to reliably work. Without the automation, each time Home Assistant restarts the MQTT connection will be lost in the ESP32 and no updates will be published.
